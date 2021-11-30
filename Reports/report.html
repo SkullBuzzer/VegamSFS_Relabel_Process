@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 27-Nov-2021 at 13:34:31 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Module Name</td>
+        <td>Dispatch</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "0.13.1", "py": "1.10.0", "pytest": "6.2.1"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.19041-SP0</td></tr>
+      <tr>
+        <td>Project Name</td>
+        <td>VegamSFS_Dispatch</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.7.4</td></tr>
+      <tr>
+        <td>Tester Name</td>
+        <td>M Gurubasava</td></tr></table>
+    <h2>Summary</h2>
+    <p>15 tests ran in 596.14 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">15 passed</span>, <input checked="true" class="filter" data-test-result="skipped" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">1 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="skipped results-table-row">
+        <tr>
+          <td class="col-result">Skipped</td>
+          <td class="col-name">testCases/test_assignRelabelRequest.py::Test_003_assignRelabelRequest::test_assignRelabelRequestToMyself[getData_assign0]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">(&#x27;C:\\Users\\Dell\\PycharmProjects\\VegamSFS_Relabel_Process\\testCases\\test_assignRelabelRequest.py&#x27;, 59, &#x27;Skipped: unconditional skip&#x27;)<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_verifyManageRelabelPage.py::Test_001_VerifyManageRelabelPage::test_verifyManageRelabel</td>
+          <td class="col-duration">21.69</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_001_VerifyManageRelabelPage:test_verifyManageRelabelPage.py:18 ************* Test_001_VerifyManageRelabel Page **************
+INFO     Test_001_VerifyManageRelabelPage:test_verifyManageRelabelPage.py:20 ************ test verify manage relabel page started **********
+INFO     Test_001_VerifyManageRelabelPage:test_verifyManageRelabelPage.py:26 ********************* Login Successful ***********************
+INFO     Test_001_VerifyManageRelabelPage:test_verifyManageRelabelPage.py:32 ****** Manage Relabel Request Page accessed successfully ******<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_addNewRelabelRequest.py::Test_002_AddNewRelabelRequest::test_addNewRelabelRequest[getData_add0]</td>
+          <td class="col-duration">42.95</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:21 *************** Test_002_AddNewRelabelRequest **************
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:27 *************** Login Successful *****************
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:31 ***** Manage Relabel Request Page accessed successfully *********
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:35 ************ Adding Relabel From Info **********************
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:48 *************** Added Relabel From Info ********************
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:50 *************** Adding Relabel To Info *********************
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:67 ************* Test Add new relabel is passed ****************<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_addNewRelabelRequest.py::Test_002_AddNewRelabelRequest::test_verifyAddedRelabelRequest[getData_add0]</td>
+          <td class="col-duration">25.29</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:73 *************** Test verify Added Relabel Request started **************
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:79 *************** Login Successful *****************
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:83 ***** Manage Relabel Request Page accessed successfully *********
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:96 ***** Relabel request added successfully with Requested status *******<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_addNewRelabelRequest.py::Test_002_AddNewRelabelRequest::test_copyRelabelRequest[getData_copy0-getData_add0]</td>
+          <td class="col-duration">36.95</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:103 *************** Test verify Added Relabel Request started **************
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:109 *************** Login Successful *****************
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:113 ***** Manage Relabel Request Page accessed successfully *********
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:125 ************ copy of Relabel Request added **************
+INFO     Test_002_AddNewRelabelRequest:test_addNewRelabelRequest.py:137 ********** test copy relabel request passed ***********<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_assignRelabelRequest.py::Test_003_assignRelabelRequest::test_assignRelabelRequestToOperatorGroup[getData_assign0]</td>
+          <td class="col-duration">37.75</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_003_assignRelabelRequest:test_assignRelabelRequest.py:21 ************* Test_003_assignRelabelRequest ****************
+INFO     Test_003_assignRelabelRequest:test_assignRelabelRequest.py:27 *************** Login Successful *****************
+INFO     Test_003_assignRelabelRequest:test_assignRelabelRequest.py:31 ***** Manage Relabel Request Page accessed successfully *********
+INFO     Test_003_assignRelabelRequest:test_assignRelabelRequest.py:44 *************** Relabel Request Assigned Successfully **************
+INFO     Test_003_assignRelabelRequest:test_assignRelabelRequest.py:53 ************* Relabel Request status changed to Assigned ***********
+INFO     Test_003_assignRelabelRequest:test_assignRelabelRequest.py:55 ************** test assign Relabel Request is passed ***************<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_downloadUpload.py::Test_006_DownloadUpload::test_downloadTemplate</td>
+          <td class="col-duration">36.79</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_006_DownloadUpload:test_downloadUpload.py:21 ************** Test_006_DownloadUpload **************
+INFO     Test_006_DownloadUpload:test_downloadUpload.py:27 ************** Login Successful *****************
+INFO     Test_006_DownloadUpload:test_downloadUpload.py:31 ******* Accessed manage Relabel Request Page *******
+INFO     Test_006_DownloadUpload:test_downloadUpload.py:35 ******* Template downloaded successfully **********<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_downloadUpload.py::Test_006_DownloadUpload::test_uploadTemplate</td>
+          <td class="col-duration">26.93</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_006_DownloadUpload:test_downloadUpload.py:41 ************** Test_006_DownloadUpload **************
+INFO     Test_006_DownloadUpload:test_downloadUpload.py:47 ************** Login Successful *****************
+INFO     Test_006_DownloadUpload:test_downloadUpload.py:51 ******* Accessed manage Relabel Request Page *******
+INFO     Test_006_DownloadUpload:test_downloadUpload.py:60 ******* test upload template is passed **********<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_downloadUpload.py::Test_006_DownloadUpload::test_downloadInfo</td>
+          <td class="col-duration">30.40</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_006_DownloadUpload:test_downloadUpload.py:66 ************** Test_006_DownloadUpload **************
+INFO     Test_006_DownloadUpload:test_downloadUpload.py:72 ************** Login Successful *****************
+INFO     Test_006_DownloadUpload:test_downloadUpload.py:76 ******* Accessed manage Relabel Request Page *******
+INFO     Test_006_DownloadUpload:test_downloadUpload.py:80 ******* test download info is passed **********<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_editDeleteRelabel.py::Test_004_editDeleteRelabel::test_editRelabelRequest[getData_editDel0]</td>
+          <td class="col-duration">36.44</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_004_editDeleteRelabel:test_editDeleteRelabel.py:22 *************** Test_004_editDeleteRelabel **************
+INFO     Test_004_editDeleteRelabel:test_editDeleteRelabel.py:23 *************** test edit Relabel Request ***************
+INFO     Test_004_editDeleteRelabel:test_editDeleteRelabel.py:29 *************** Login Successful *****************
+INFO     Test_004_editDeleteRelabel:test_editDeleteRelabel.py:33 ***** Manage Relabel Request Page accessed successfully *********
+INFO     Test_004_editDeleteRelabel:test_editDeleteRelabel.py:52 ********* test edit Relabel Request passed *************<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_editDeleteRelabel.py::Test_004_editDeleteRelabel::test_deleteRelabelRequest[getData_editDel0]</td>
+          <td class="col-duration">19.41</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_004_editDeleteRelabel:test_editDeleteRelabel.py:58 *************** test edit Relabel Request ***************
+INFO     Test_004_editDeleteRelabel:test_editDeleteRelabel.py:64 *************** Login Successful *****************
+INFO     Test_004_editDeleteRelabel:test_editDeleteRelabel.py:82 ************* test edit Relabel Request passed ****************<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_printRelabel.py::Test_005_PrintRelabel::test_prePrintRelabel</td>
+          <td class="col-duration">34.41</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_005_PrintRelabel:test_printRelabel.py:22 *************** Test_005_PrintRelabel *****************
+INFO     Test_005_PrintRelabel:test_printRelabel.py:23 *************** test pre print relabel ****************
+INFO     Test_005_PrintRelabel:test_printRelabel.py:29 *************** Logged in Successfully *****************
+INFO     Test_005_PrintRelabel:test_printRelabel.py:33 ******** Manage relabel request page accessed successfully ********
+INFO     Test_005_PrintRelabel:test_printRelabel.py:43 ************* New label printed successfully ****************<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_relabelPickingProcess.py::Test_008_RelabelPickingProcess::test_pickMaterialForRelabel</td>
+          <td class="col-duration">115.92</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_008_RelabelPickingProcess:test_relabelPickingProcess.py:23 ********** Test_007_authorizationOfRelPicking ***********
+INFO     Test_008_RelabelPickingProcess:test_relabelPickingProcess.py:25 ******* Test authorization of Rel picking started ********
+INFO     Test_008_RelabelPickingProcess:test_relabelPickingProcess.py:31 ***************** Login Successful *****************
+INFO     Test_008_RelabelPickingProcess:test_relabelPickingProcess.py:51 **************** RM label captured successfully ***************
+INFO     Test_008_RelabelPickingProcess:test_relabelPickingProcess.py:60 ******* Scanned bin location and click on pick button ********
+INFO     Test_008_RelabelPickingProcess:test_relabelPickingProcess.py:69 ******* Scanned bin location and click on pick button ********
+INFO     Test_008_RelabelPickingProcess:test_relabelPickingProcess.py:80 ******* Material picked successfully ********
+INFO     Test_008_RelabelPickingProcess:test_relabelPickingProcess.py:95 ************ Test Relabel Picking Passed ***************<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_relabelConfirmation.py::Test_009_RelabelConfirm::test_printRelabel</td>
+          <td class="col-duration">43.99</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_009_RelabelConfirm:test_relabelConfirmation.py:23 ************ Test_009_RelabelConfirm ************
+INFO     Test_009_RelabelConfirm:test_relabelConfirmation.py:24 ******** test relabel printing started *********
+INFO     Test_009_RelabelConfirm:test_relabelConfirmation.py:30 ***************** Login Successful *****************
+INFO     Test_009_RelabelConfirm:test_relabelConfirmation.py:56 ************* test relabel printing passed ***********<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_relabelConfirmation.py::Test_009_RelabelConfirm::test_relabelConfirm</td>
+          <td class="col-duration">65.60</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_009_RelabelConfirm:test_relabelConfirmation.py:65 ******** test relabel confirm started *********
+INFO     Test_009_RelabelConfirm:test_relabelConfirmation.py:71 ***************** Login Successful *****************
+INFO     Test_009_RelabelConfirm:test_relabelConfirmation.py:124 ********* test relabel confirm passed ************<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCases/test_authorizationOfRelPicking.py::Test_007_authorizationOfRelPicking::test_authorizationOfRelPicking</td>
+          <td class="col-duration">21.06</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     Test_007_authorizationOfRelPicking:test_authorizationOfRelPicking.py:17 ********** Test_007_authorizationOfRelPicking ***********
+INFO     Test_007_authorizationOfRelPicking:test_authorizationOfRelPicking.py:19 ******* Test authorization of Rel picking started ********
+INFO     Test_007_authorizationOfRelPicking:test_authorizationOfRelPicking.py:25 ***************** Login Successful *****************
+INFO     Test_007_authorizationOfRelPicking:test_authorizationOfRelPicking.py:33 ****** Test authorization of Rel Picking Passed *******<br/></div></td></tr></tbody></table></body></html>
