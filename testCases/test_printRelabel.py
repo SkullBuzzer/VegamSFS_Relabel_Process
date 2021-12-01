@@ -17,6 +17,7 @@ class Test_005_PrintRelabel(BaseClass):
     password = ReadConfig.getPassword()
     log = LogGen.getLogger()
 
+    @pytest.mark.regression
     @pytest.mark.run(order=11)
     def test_prePrintRelabel(self):
         self.log.info("*************** Test_005_PrintRelabel *****************")

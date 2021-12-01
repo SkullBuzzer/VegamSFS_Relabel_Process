@@ -16,6 +16,7 @@ class Test_002_AddNewRelabelRequest(BaseClass):
     password = ReadConfig.getPassword()
     log = LogGen.getLogger()
 
+    @pytest.mark.regression
     @pytest.mark.run(order=2)
     def test_addNewRelabelRequest(self, getData_add):
         self.log.info("*************** Test_002_AddNewRelabelRequest **************")
@@ -68,6 +69,7 @@ class Test_002_AddNewRelabelRequest(BaseClass):
         lp.clickOnSignOut()
         lp.clickOnLoginAgain()
 
+    @pytest.mark.regression
     @pytest.mark.run(order=3)
     def test_verifyAddedRelabelRequest(self, getData_add):
         self.log.info("*************** Test verify Added Relabel Request started **************")

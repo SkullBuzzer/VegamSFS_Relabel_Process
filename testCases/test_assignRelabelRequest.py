@@ -16,6 +16,7 @@ class Test_003_assignRelabelRequest(BaseClass):
     password = ReadConfig.getPassword()
     log = LogGen.getLogger()
 
+    @pytest.mark.regression
     @pytest.mark.run(order=5)
     def test_assignRelabelRequestToOperatorGroup(self, getData_assign):
         self.log.info("************* Test_003_assignRelabelRequest ****************")

@@ -17,6 +17,7 @@ class Test_009_RelabelConfirm(BaseClass):
     password = ReadConfig.getPassword()
     log = LogGen.getLogger()
 
+    @pytest.mark.regression
     @pytest.mark.run(order=13)
     def test_printRelabel(self):
         self.driver.implicitly_wait(10)

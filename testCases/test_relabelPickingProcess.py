@@ -16,6 +16,7 @@ class Test_008_RelabelPickingProcess(BaseClass):
     password = ReadConfig.getPassword()
     log = LogGen.getLogger()
 
+    @pytest.mark.regression
     @pytest.mark.run(order=12)
     def test_pickMaterialForRelabel(self):
         global bin_name
